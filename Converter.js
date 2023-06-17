@@ -1,8 +1,13 @@
 import fs from "fs";
 
 export class Converter {
+	constructor() {
+		this.tagGroup = [];
+	}
+
+
 	manageAttributes(attr) {
-		let htmlObjLine = "";
+		let htmlObjLine = {};
 		let htmlSingleLine = "";
 		for (let prop in attr) {
 			if (typeof attr[prop] == "object") {
@@ -10,41 +15,53 @@ export class Converter {
 				for (let single in attr[prop]) {
 					htmlLine += `${single}:${attr[prop][single]};`;
 				}
-				htmlObjLine = htmlLine + `"`;
+				htmlObjLine[prop] = htmlLine + `"`;
 			} else {
-				htmlSingleLine = `${prop}="${attr[prop]}"`;
+				htmlSingleLine += ` ${prop}="${attr[prop]}"`;
 			}
 		}
-		return [htmlSingleLine, htmlObjLine];
+		for (let el in htmlObjLine) {
+			htmlSingleLine += " " + htmlObjLine[el];
+		}
+		return htmlSingleLine;
 	}
 
-	manageProps(prop, obj) {
-		if (this.isDoubleTag(prop)) {
+	manageTags(prop, obj) {
 			return `<${prop}>${obj}</${prop}>`;
+	}
+
+	manageNested(prop, obj) {
+		let singleLine =`<${prop}`
+		if (obj.hasOwnProperty("attributes")) {
+			singleLine += this.manageAttributes(obj["attributes"])
 		}
+		singleLine += '>'
+		this.tagGroup.push(singleLine)
+		
+		for(let el in obj){
+			if (typeof obj[el] == "object" && el != "attributes") {
+				this.tagGroup.push(`<${el}>`)
+				this.iterate(obj[el]);
+				this.tagGroup.push(`</${el}>`)
+			} else if (el != "attributes"){
+				this.tagGroup.push(`<${el}>${obj[el]}</${el}>`);
+			}
+		}
+		this.tagGroup.push(`</${prop}>`);
 	}
 
 	iterate(obj) {
-		let propes = "";
 		for (let prop in obj) {
+			if (prop === "attributes") {
+				continue;
+			}
 			if (typeof obj[prop] == "object") {
-				if (prop == "attributes") {
-					this.manageAttributes(obj[prop]);
-				}
-				this.iterate(obj[prop]);
+				this.manageNested(prop, obj[prop]);
 			} else {
-				propes += this.manageProps(prop, obj[prop]) + "\n";
+				this.tagGroup.push(this.manageTags(prop, obj[prop]));				
 			}
 		}
-		return propes;
-	}
-
-	isDoubleTag(prop) {
-		const tagArray = ["h1", "h2", "h3", "p", "div"];
-		if (tagArray.includes(prop)) {
-			return true;
-		}
-		return false;
+		return this.tagGroup;
 	}
 
 	getJsonFiles(path) {
@@ -94,6 +111,7 @@ export class Converter {
 							tempstring += htmlLine + "\n";
 						});
 					} else {
+						// let htmlLine = `<${el}`
 						for (let name in headEl) {
 							let htmlLine = `<${el}`;
 							if (name === "viewport") {
@@ -103,6 +121,7 @@ export class Converter {
 									tempLine += `${viewp}=${headEl[name][viewp]} `;
 								}
 								tempLine = tempLine.trim().replace(" ", ", ");
+								tempLine += '>'
 								htmlLine += `"${tempLine}"`;
 							} else if (name === "charset") {
 								htmlLine += ` ${name}="${headEl[name]}">`;
@@ -120,16 +139,15 @@ export class Converter {
 	}
 
 	createBody(obj) {
-		let bodyLine = `<body `;
-		bodyLine +=
-			this.manageAttributes(obj["body"]["attributes"])[0] +
-			" " +
-			this.manageAttributes(obj["body"]["attributes"])[1] +
-			">";
+		let bodyLine = `<body`;
+		bodyLine += this.manageAttributes(obj["body"]["attributes"]);
+		bodyLine += '>'
 		bodyLine += "\n";
-		bodyLine += this.iterate(obj["body"]) + "\n";
+		bodyLine += (this.iterate(obj["body"]).join("\n")) + "\n";
+		this.iterate(obj["body"])
 		bodyLine += "</body>" + "\n";
 		bodyLine += "</html>";
+		
 		return bodyLine;
 	}
 
@@ -142,12 +160,10 @@ export class Converter {
 		return html;
 	}
 
-
-
 	writeToFile(path, data) {
 		fs.writeFile(path, data, (err) => {
 			if (err) throw err;
-			console.log(`File on path: ./${path} has been created!`);
+			console.log("The file has been saved!");
 		});
 	}
 }
