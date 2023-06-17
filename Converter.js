@@ -111,7 +111,6 @@ export class Converter {
 							tempstring += htmlLine + "\n";
 						});
 					} else {
-						// let htmlLine = `<${el}`
 						for (let name in headEl) {
 							let htmlLine = `<${el}`;
 							if (name === "viewport") {
@@ -121,8 +120,8 @@ export class Converter {
 									tempLine += `${viewp}=${headEl[name][viewp]} `;
 								}
 								tempLine = tempLine.trim().replace(" ", ", ");
-								tempLine += '>'
 								htmlLine += `"${tempLine}"`;
+								htmlLine += '>'
 							} else if (name === "charset") {
 								htmlLine += ` ${name}="${headEl[name]}">`;
 							} else {
